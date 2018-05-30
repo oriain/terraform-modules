@@ -17,7 +17,11 @@ resource "aws_launch_configuration" "example" {
   instance_type   = "${var.instance_type}"
   security_groups = ["${aws_security_group.instance.id}"]
 
-  user_data = "${data.template_file.user_data.rendered}"
+  # user_data = "${data.template_file.user_data.rendered}"
+  user_data = "${element(concat(
+    data.template_file.user_data.*.rendered,
+    data.template_file.user_data_new.*.rendered)
+    ,0)}"
 
   lifecycle {
     create_before_destroy = true
@@ -138,12 +142,24 @@ data "terraform_remote_state" "db" {
 }
 
 data "template_file" "user_data" {
+  count = "${1 - var.enable_new_user_data}"
+
   template = "${file("${path.module}/user-data.sh")}"
 
   vars {
     server_port = "${var.server_port}"
     db_address  = "${data.terraform_remote_state.db.address}"
     db_port     = "${data.terraform_remote_state.db.port}"
+  }
+}
+
+data "template_file" "user_data_new" {
+  count = "${var.enable_new_user_data}"
+
+  template = "${file("${path.module}/user-data-new.sh")}"
+
+  vars {
+    server_port = "${var.server_port}"
   }
 }
 
