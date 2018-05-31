@@ -18,7 +18,7 @@ resource "aws_launch_configuration" "example" {
   security_groups = ["${aws_security_group.instance.id}"]
 
   # user_data = "${data.template_file.user_data.rendered}"
-  user_data = "${data.template_file.user_data.*.rendered}"
+  user_data = "${data.template_file.user_data.rendered}"
 
   lifecycle {
     create_before_destroy = true
@@ -41,14 +41,20 @@ resource "aws_security_group" "instance" {
 }
 
 resource "aws_autoscaling_group" "example" {
+  name = "${var.cluster_name}-${aws_launch_configuration.example.name}"
+
   launch_configuration = "${aws_launch_configuration.example.id}"
   availability_zones   = ["${data.aws_availability_zones.all.names}"]
+  load_balancers       = ["${aws_elb.example.name}"]
+  health_check_type    = "ELB"
 
-  load_balancers    = ["${aws_elb.example.name}"]
-  health_check_type = "ELB"
+  min_size         = "${var.min_size}"
+  max_size         = "${var.max_size}"
+  min_elb_capacity = "${var.min_size}"
 
-  min_size = "${var.min_size}"
-  max_size = "${var.max_size}"
+  lifecycle {
+    create_before_destroy = true
+  }
 
   tag {
     key                 = "Name"
@@ -100,10 +106,18 @@ resource "aws_elb" "example" {
     interval            = 30
     target              = "http:${var.server_port}/"
   }
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_security_group" "elb" {
   name = "${var.cluster_name}-elb"
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_security_group_rule" "allow_http_inbound" {
